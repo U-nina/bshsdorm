@@ -119,7 +119,7 @@ demerit_rules = {
     "음식물 쓰레기 무단 투기 (5점)": 5,
     "자정 이후 타호실 출입이나 취침 (2점)": 2,
     "호실 내 취침 방해 (2점)": 2,
-    "자율학습 불참 또는 분위기 저해 (2점)": 2, # 🛠️ 끝에 쉼표 추가함
+    "자율학습 불참 또는 분위기 저해 (2점)": 2,
     "퇴실 시 정돈 불량 (2점)": 2
 }
 
@@ -158,7 +158,7 @@ def fetch_diet_info():
         "월요일": {"조식": "흰밥, 미역국, 불고기, 김치", "중식": "돈까스볶음밥, 팽이장국, 떡볶이", "석식": "잡곡밥, 육개장, 고등어구이"},
         "화요일": {"조식": "계란볶음밥, 콩나물국, 소시지", "중식": "비빔밥, 약고추장, 수제비, 만두", "석식": "쌀밥, 부대찌개, 제육볶음"},
         "수요일": {"조식": "누룽지탕, 닭간장조림, 무생채", "중식": "스파게티, 마늘빵, 샐러드, 피클", "석식": "카레라이스, 맑은우동, 치킨가라아게"},
-        "목요일": {"조식": "흰밥, 북어해장국, 감자조림", "중식": "낙지비빔밥, 계란파국, 탕수육", "석식": "오곡밥, 순두부찌개, 오리훈제볶음"},
+        "목요일": {"조식": "흰밥, 북어해장국,감자조림", "중식": "낙지비빔밥, 계란파국, 탕수육", "석식": "오곡밥, 순두부찌개, 오리훈제볶음"},
         "금요일": {"조식": "샌드위치, 우유, 시리얼, 바나나", "중식": "칼국수, 주먹밥, 겉절이, 핫도그", "석식": "기숙사 잔류생 없음 (귀가)"}
     }
     return mock_diet
@@ -210,7 +210,7 @@ else:
             penalty_days = "7일" if current_demerit < 15 else "30일"
             st.error(f"🚨 알림: 월 누적 벌점 {current_demerit}점 초과로 인해 [{penalty_days} 간 퇴사] 대상입니다. 사감실로 문의하세요.")
 
-    else: # 🛠️ 들여쓰기 교정 완료
+    else:
         st.sidebar.success("👨‍🏫 관리자(교사) 계정 로그인 중")
 
     if st.sidebar.button("로그아웃"):
@@ -275,4 +275,243 @@ if st.session_state.logged_in:
             if len(my_outings) >= 2:
                 st.warning("⚠️ 외박 신청은 주 2회까지 가능합니다. (현재 주 3회 이상 초과 신청 불가)")
 
-            with st.
+            with st.form("outing_form"):
+                out_date = st.date_input("외박 날짜 선택", min_value=datetime.date.today())
+                col1, col2 = st.columns(2)
+                start_time = col1.time_input("외박 시작 시간", datetime.time(18, 0))
+                end_time = col2.time_input("외박 복귀/종료 시간", datetime.time(21, 0))
+
+                reason_cat = st.selectbox("사유 선택", ["학원 수업", "병원", "학교 행사", "개인 사정"])
+                detail_reason = ""
+                if reason_cat in ["학교 행사", "개인 사정"]:
+                    detail_reason = st.text_input("구체적인 사유를 기록해주세요.")
+
+                submit_btn = st.form_submit_button("외박 신청서 제출")
+
+                if submit_btn:
+                    if start_time >= end_time:
+                        st.error("❌ 차단: 시작 시간이 종료 시간보다 늦거나 같을 수 없습니다.")
+                    elif len(my_outings) >= 2:
+                        st.error("❌ 외박 신청은 주 2회까지 가능합니다.")
+                    else:
+                        st.session_state.outings.append({
+                            "id": student_id,
+                            "name": student_info['name'],
+                            "room": student_info['room'],
+                            "floor": student_info['floor'],
+                            "date": out_date,
+                            "start": start_time,
+                            "end": end_time,
+                            "reason": f"[{reason_cat}] {detail_reason}".strip(),
+                            "status": "승인대기"
+                        })
+                        st.success("✅ 외박 신청이 정상적으로 접수되었습니다. 교사의 승인을 기다려주세요.")
+                        st.rerun()
+
+            st.subheader("내 외박 신청 내역")
+            my_current_outings = [o for o in st.session_state.outings if o['id'] == student_id]
+            if my_current_outings:
+                for idx, o in enumerate(my_current_outings):
+                    st.info(
+                        f"📅 날짜: {o['date']} | 시간: {o['start']} ~ {o['end']} | 사유: {o['reason']} | 상태: **{o['status']}**")
+                    if o['status'] == "승인대기":
+                        if st.button(f"신청 취소하기", key=f"cancel_{idx}"):
+                            st.session_state.outings.remove(o)
+                            st.success("신청이 취소되었습니다.")
+                            st.rerun()
+            else:
+                st.write("신청한 내역이 없습니다.")
+
+        elif st.session_state.user_type == "teacher":
+            st.subheader("👨‍🏫 학생 외박 신청 결재 대기 목록")
+            pending_outings = [o for o in st.session_state.outings if o['status'] == "승인대기"]
+
+            if pending_outings:
+                for idx, o in enumerate(pending_outings):
+                    st.write(f"**[{o['floor']} {o['room']}호] {o['id']} {o['name']}**")
+                    st.write(f"일시: {o['date']} ({o['start']} ~ {o['end']}) | 사유: {o['reason']}")
+                    col1, col2 = st.columns(2)
+                    if col1.button("🟢 승인", key=f"app_{idx}"):
+                        o['status'] = "승인"
+                        st.success("승인 처리되었습니다.")
+                        st.rerun()
+                    if col2.button("🔴 거절", key=f"rej_{idx}"):
+                        o['status'] = "거절"
+                        st.error("거절 처리되었습니다.")
+                        st.rerun()
+                    st.markdown("---")
+            else:
+                st.write("결재 대기 중인 외박 신청이 없습니다.")
+
+    # --- (3) 기숙사 벌점 관리 탭 ---
+    with tabs[2]:
+        st.header("📊 기숙사 벌점 부과 및 관리 시스템")
+
+        if st.session_state.user_type == "teacher":
+            st.subheader("벌점 부여하기")
+            selected_student_str = st.selectbox("대상 학생 선택",
+                                                [f"{s['id']} {s['name']} ({s['room']}호)" for s in students_data])
+            selected_student_id = selected_student_str.split()[0]
+
+            chosen_rule = st.selectbox("벌점 부과 기준 선택", list(demerit_rules.keys()))
+            score = demerit_rules[chosen_rule]
+
+            col1, col2 = st.columns(2)
+            if col1.button("🚨 벌점 부과 실행"):
+                st.session_state.demerits[selected_student_id] += score
+                st.session_state.demerit_history.append({
+                    "id": selected_student_id,
+                    "rule": chosen_rule,
+                    "score": score,
+                    "date": datetime.date.today()
+                })
+                st.success(f"정상 처리: {selected_student_id} 학생에게 벌점 {score}점이 부과되었습니다.")
+                st.rerun()
+            if col2.button("❌ 부과 취소 (초기화)"):
+                st.info("입력 동작이 취소되었습니다.")
+
+            st.subheader("전체 학생 누적 벌점 현황")
+            summary_list = []
+            for s in students_data:
+                summary_list.append({
+                    "학번": s['id'],
+                    "이름": s['name'],
+                    "호실": s['room'],
+                    "누적 벌점": st.session_state.demerits.get(s['id'], 0)
+                })
+            st.dataframe(pd.DataFrame(summary_list))
+
+        elif st.session_state.user_type == "student":
+            st.subheader("내 누적 벌점 조회")
+            my_score = st.session_state.demerits.get(st.session_state.user_id, 0)
+            st.metric(label="현재 이번 달 누적 벌점", value=f"{my_score} 점")
+
+            st.markdown("**벌점부과 세부 기록:**")
+            my_hist = [h for h in st.session_state.demerit_history if h['id'] == st.session_state.user_id]
+            if my_hist:
+                for h in my_hist:
+                    st.write(f"- {h['date']}: {h['rule']} (+{h['score']}점)")
+            else:
+                st.write("벌점 부여 내역이 없습니다.")
+
+    # --- (4) 오늘의 식단 탭 ---
+    with tabs[3]:
+        st.header("🍱 주간 기숙사 급식 메뉴 현황")
+        st.caption("🔗 부산고등학교 급식 안내 페이지 실시간 연동 기반")
+
+        diet_data = fetch_diet_info()
+        if diet_data:
+            for day, menus in diet_data.items():
+                with st.expander(f"📅 {day} 식단 보기"):
+                    st.markdown(f"**🌅 조식:** {menus.get('조식', '없음')}")
+                    st.markdown(f"**☀️ 중식:** {menus.get('중식', '없음')}")
+                    st.markdown(f"**🌌 석식:** {menus.get('석식', '없음')}")
+        else:
+            st.error("식단 정보를 불러오지 못했습니다. 학교 홈페이지를 참조하세요.")
+
+    # --- (5) 캘린더 탭 ---
+    with tabs[4]:
+        st.header("📅 2026학년도 부산고 주요 학사일정")
+
+        search_month = st.selectbox("조회할 월 선택", ["전체", "03월", "04월", "05월", "06월", "07월", "11월", "12월"])
+
+        for date_str, event in academic_calendar.items():
+            month_part = date_str.split("-")[1] + "월"
+            if search_month == "전체" or search_month == month_part:
+                st.markdown(f"📆 **{date_str}** : `{event}`")
+
+    # --- (6) Q&A 게시판 탭 ---
+    with tabs[5]:
+        st.header("❓ 기숙사 소통 Q&A 게시판")
+
+        with st.expander("📝 새 질문 등록하기"):
+            title = st.text_input("질문 제목")
+            content = st.text_area("내용")
+            is_private = st.checkbox("🔒 비밀글로 설정하기")
+            secret_pw = ""
+            if is_private:
+                secret_pw = st.text_input("비밀글 비밀번호 설정", type="password")
+
+            if st.button("질문 등록"):
+                if title and content:
+                    st.session_state.qa_posts.append({
+                        "idx": len(st.session_state.qa_posts),
+                        "author": st.session_state.user_id,
+                        "title": title,
+                        "content": content,
+                        "is_private": is_private,
+                        "password": secret_pw,
+                        "reply": ""
+                    })
+                    st.success("게시글이 성공적으로 등록되었습니다.")
+                    st.rerun()
+                else:
+                    st.error("제목과 내용을 모두 작성해주세요.")
+
+        st.subheader("게시글 목록")
+        if st.session_state.qa_posts:
+            for post in st.session_state.qa_posts:
+                st.markdown(f"#### 📌 [{post['idx']}] {post['title']} (작성자: {post['author']})")
+
+                can_view = True
+                if post['is_private'] and st.session_state.user_type != "teacher" and post[
+                    'author'] != st.session_state.user_id:
+                    can_view = False
+                    input_key_pw = st.text_input(f"비밀번호 입력 (글 번호: {post['idx']})", type="password",
+                                                 key=f"pw_{post['idx']}")
+                    if input_key_pw == post['password']:
+                        can_view = True
+
+                if can_view:
+                    st.write(f"내용: {post['content']}")
+                    if post['reply']:
+                        st.info(f"↳ 👨‍🏫 교사 답변: {post['reply']}")
+                    else:
+                        st.warning("↳ 답변 대기 중")
+
+                    if post['author'] == st.session_state.user_id:
+                        with st.expander(f"✏️ 글 수정하기"):
+                            edit_content = st.text_area("내용 수정", post['content'], key=f"edit_{post['idx']}")
+                            if st.button("수정 완료", key=f"edit_btn_{post['idx']}"):
+                                post['content'] = edit_content
+                                st.success("수정되었습니다.")
+                                st.rerun()
+
+                    if st.session_state.user_type == "teacher":
+                        with st.expander(f"💬 답변 작성/수정 (관리자용)"):
+                            reply_text = st.text_area("답변 내용", post['reply'], key=f"rep_{post['idx']}")
+                            if st.button("답변 저장", key=f"rep_btn_{post['idx']}"):
+                                post['reply'] = reply_text
+                                st.success("답변이 등록되었습니다.")
+                                st.rerun()
+                else:
+                    st.error("🔒 비밀글입니다. 작성자 또는 관리자만 볼 수 있습니다.")
+                st.markdown("---")
+        else:
+            st.write("등록된 질문이 없습니다.")
+
+    # --- (7) 외박 현황 탭 ---
+    with tabs[6]:
+        st.header("🏠 실시간 층별 생활실 외박 현황")
+        st.caption(f"기준일자: {datetime.date.today()}")
+
+        active_outings = [o for o in st.session_state.outings if
+                          o['status'] == "승인" and o['date'] == datetime.date.today()]
+
+        for floor in ["1층", "2층", "3층"]:
+            st.subheader(f"🏢 {floor} 현황")
+            floor_students = df_students[df_students['floor'] == floor]
+            rooms = sorted(floor_students['room'].unique())
+
+            cols = st.columns(len(rooms))
+            for i, room in enumerate(rooms):
+                with cols[i]:
+                    st.markdown(f"**🚪 {room}호**")
+                    room_outings = [o for o in active_outings if o['room'] == room]
+                    if room_outings:
+                        for ro in room_outings:
+                            st.error(f"🔴 {ro['name']}\n({ro['start'].strftime('%H:%M')}~)\n사유: {ro['reason']}")
+                    else:
+                        st.success("🟢 전원 잔류")
+else:
+    st.info("💡 사이드바에서 로그인을 진행하시면 기숙사 시스템의 모든 기능을 이용하실 수 있습니다.")

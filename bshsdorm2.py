@@ -517,7 +517,7 @@ elif selected_menu == "🏠 실시간 외박 현황":
     # 선택된 일자 기준 승인 완료된 외박 리스트 필터링
     active_outings = [o for o in st.session_state.outings if o['status'] == "승인" and str(o['date']) == str(search_date)]
 
-    for floor in ["1층", "2층", "3층"]: [cite: 1]
+    for floor in ["1층", "2층", "3층"]: 
     st.subheader(f"🏢 {floor} 생활관 동향")
     rooms = sorted(df_students[df_students['floor'] == floor]['room'].unique())
     cols = st.columns(len(rooms))

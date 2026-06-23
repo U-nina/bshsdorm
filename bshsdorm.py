@@ -35,7 +35,7 @@ if "initialized" not in st.session_state:
 # --- 학생 배치 데이터 구축 (제공된 CSV 기반) [cite: 1] ---
 students_data = [
     # 1층 (101~107) [cite: 1]
-    {"floor": "1층", "room": "101", "bed": "1(위)", "id": "1101", "name": "김민준"}, [cite: 1]
+    {"floor": "1층", "room": "101", "bed": "1(위)", "id": "1101", "name": "김민준"},
 {"floor": "1층", "room": "101", "bed": "2(아래)", "id": "1102", "name": "김서준"}, [cite: 1]
 {"floor": "1층", "room": "102", "bed": "1", "id": "1201", "name": "김도윤"}, [cite: 1]
 {"floor": "1층", "room": "102", "bed": "2", "id": "1202", "name": "김예준"}, [cite: 1]

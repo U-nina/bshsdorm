@@ -381,7 +381,8 @@ if st.session_state.logged_in:
                 })
             st.dataframe(pd.DataFrame(summary_list))
 
-        elif st.session_state.user_type == "student":
+
+        elif st.session_state.user_type == "student":  # 🛠️ 이렇게 수정하세요!
             st.subheader("내 누적 벌점 조회")
             my_score = st.session_state.demerits.get(st.session_state.user_id, 0)
             st.metric(label="현재 이번 달 누적 벌점", value=f"{my_score} 점")
